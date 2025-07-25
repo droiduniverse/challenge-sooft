@@ -12,7 +12,7 @@ La solución está organizada como un monorepo simple para facilitar la evaluaci
 `./lambda-adhesion/` : Contiene el diseño teórico y el código fuente de la función AWS Lambda para la adhesión de empresas.
 
 #### 1. API NestJS (/api-nestjs)
-Esta carpeta contiene la implementación principal del desafío.
+Esta carpeta contiene la implementación principal del desafío. Se recomienda usar node 20 
 
 Para ejecutarla:
 
