@@ -1,18 +1,32 @@
-import { IsString, IsNotEmpty, IsEnum } from 'class-validator';
-// Desde dtos/ a core/domain/
-import { EmpresaTipo } from '../../../core/domain/empresa-tipo.enum';
-
+import { IsNotEmpty, IsString, IsEnum } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger'; 
+import { EmpresaTipo } from './../../../core/domain/empresa-tipo.enum'; 
 
 export class CreateEmpresaDto {
-  @IsString()
+  @ApiProperty({
+    description: 'CUIT de la empresa',
+    example: '20-12345678-9',
+    type: String, 
+  })
   @IsNotEmpty()
+  @IsString()
   cuit: string;
 
-  @IsString()
+  @ApiProperty({
+    description: 'Razón Social de la empresa',
+    example: 'Mi Empresa S.A.',
+    type: String,
+  })
   @IsNotEmpty()
+  @IsString()
   razonSocial: string;
 
-  @IsEnum(EmpresaTipo)
+  @ApiProperty({
+    description: 'Tipo de empresa (PYME o CORPORATIVA)',
+    enum: EmpresaTipo,
+    example: EmpresaTipo.PYME,
+  })
   @IsNotEmpty()
+  @IsEnum(EmpresaTipo)
   tipo: EmpresaTipo;
 }

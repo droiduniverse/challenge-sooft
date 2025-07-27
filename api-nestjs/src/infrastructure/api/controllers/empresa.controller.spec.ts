@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { EmpresaTipo } from '../../../core/domain/empresa-tipo.enum';
 import { INestApplication, ValidationPipe, CanActivate } from '@nestjs/common';
 import * as request from 'supertest';
 import { EmpresaController } from './empresa.controller';
 import { EmpresaServicePort, RegistrarEmpresaCommand } from '../../../core/ports/in/empresa-service.port';
 import { Empresa } from '../../../core/domain/empresa.entity';
-import { EmpresaTipo } from '../../../core/domain/empresa-tipo.enum';
 import { CreateEmpresaDto } from '../dtos/create-empresa.dto';
 import { EMPRESA_SERVICE_PORT } from '../../../core/services/empresa.service';
 import { AuthModule } from '../../../auth/auth.module';
