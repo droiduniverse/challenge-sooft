@@ -1,22 +1,13 @@
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
-const { v4: uuidv4 } = require('uuid');
-const { plainToInstance } = require('class-transformer');
-const { validate } = require('class-validator');
+// handler.ts
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { v4 as uuidv4 } from 'uuid';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import 'reflect-metadata'; // ¡CRUCIAL! Importar para que los decoradores funcionen con class-validator
 
-
-var EmpresaTipo;
-(function (EmpresaTipo) {
-    EmpresaTipo["PYME"] = "PYME";
-    EmpresaTipo["CORPORATIVA"] = "CORPORATIVA";
-})(EmpresaTipo || (EmpresaTipo = {}));
-
-
-class CreateEmpresaDto {
-    cuit;
-    razonSocial;
-    tipo;
-}
+// Importamos el DTO y el Enum desde nuestro nuevo archivo
+import { CreateEmpresaDto, EmpresaTipo } from './create-empresa.dto';
 
 
 // --- Configuración de DynamoDB ---
@@ -27,7 +18,7 @@ const TABLE_NAME = process.env.TABLE_NAME || 'EmpresasTable'; // Nombre de la ta
 /**
  * Función auxiliar para construir respuestas HTTP de API Gateway.
  */
-const buildResponse = (statusCode, body) => {
+const buildResponse = (statusCode: number, body: any) => { // Añadimos tipos básicos
     return {
         statusCode: statusCode,
         headers: {
@@ -45,7 +36,7 @@ const buildResponse = (statusCode, body) => {
  * @param {object} event - Objeto de evento de la solicitud API Gateway.
  * @returns {Promise<object>} - Respuesta HTTP para API Gateway.
  */
-exports.handler = async (event) => {
+export const handler = async (event: { httpMethod: string; body?: string; }) => { // Añadimos tipos para el evento
     console.log('Received event:', JSON.stringify(event, null, 2));
 
     if (event.httpMethod !== 'POST') {
@@ -53,21 +44,22 @@ exports.handler = async (event) => {
     }
 
     try {
+        if (!event.body) {
+            return buildResponse(400, { message: 'Request body is missing' });
+        }
         const requestBody = JSON.parse(event.body);
 
         // 1. Validación de Datos
         // Usamos plainToInstance para convertir el objeto plano del body en una instancia de CreateEmpresaDto
+        // TypeScript aquí ayuda a asegurar que los tipos coincidan.
         const createEmpresaDto = plainToInstance(CreateEmpresaDto, requestBody);
-        // NOTA IMPORTANTE: En este entorno de JavaScript puro, la validación basada en
-        // decoradores de 'class-validator' no aplicará reglas automáticamente
-        // a menos que el código haya sido transpilado de TypeScript con 'emitDecoratorMetadata'.
-        // Para una Lambda de producción puramente JS, se necesitaría validación manual explícita.
 
-
+        // validate() encontrará los metadatos de los decoradores gracias a TypeScript y 'reflect-metadata'.
         const errors = await validate(createEmpresaDto);
 
         if (errors.length > 0) {
             console.error('Validation errors:', errors);
+            // Mapeamos los errores para obtener solo los mensajes de las restricciones
             const errorMessages = errors.flatMap(error => Object.values(error.constraints || {}));
             return buildResponse(400, {
                 message: errorMessages,
@@ -81,7 +73,7 @@ exports.handler = async (event) => {
             id: uuidv4(),
             cuit: createEmpresaDto.cuit,
             razonSocial: createEmpresaDto.razonSocial,
-            fechaAdhesion: new Date().toISOString(), // Almacenar como string ISO para DynamoDB
+            fechaAdhesion: new Date().toISOString(), 
             tipo: createEmpresaDto.tipo,
         };
 
@@ -97,7 +89,7 @@ exports.handler = async (event) => {
         // 4. Devolver la respuesta de éxito
         return buildResponse(201, nuevaEmpresa);
 
-    } catch (error) {
+    } catch (error: any) { 
         console.error('Error processing request:', error);
         return buildResponse(500, {
             message: 'Internal Server Error',
@@ -106,19 +98,3 @@ exports.handler = async (event) => {
         });
     }
 };
-
-// --- Nota sobre class-validator en Lambda con JS ---
-// Para que `validate(createEmpresaDto)` funcione en un entorno de Node.js puro sin transpilar TypeScript,
-// necesitarías que los decoradores `@IsString()`, `@IsNotEmpty()`, `@IsEnum()` se hubieran aplicado
-// a la clase `CreateEmpresaDto` durante un proceso de transpilación (ej. con TypeScript o Babel).
-// En un despliegue real de Lambda, subirías el código transpilado de tus archivos .ts.
-// Para esta demostración teórica, asumimos esa pre-transpilación.
-// Si no quieres usar class-validator y solo JS, harías las validaciones manualmente:
-/*
-if (!requestBody.cuit || typeof requestBody.cuit !== 'string') {
-    // error
-}
-if (!Object.values(EmpresaTipo).includes(requestBody.tipo)) {
-    // error
-}
-*/

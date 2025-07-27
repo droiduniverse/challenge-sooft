@@ -1,39 +1,67 @@
-const { handler } = require('./index');
-
-jest.mock('uuid', () => ({
-  v4: jest.fn(() => 'mocked-uuid-123'),
-}));
-
-// class-transformer y class-validator:
-// En este entorno de JS puro sin transpilación de TypeScript,
-// validate() siempre devolverá un array vacío si no se le inyectan metadatos manualmente.
-// plainToInstance simplemente devuelve el objeto si no hay transformadores complejos.
-jest.mock('class-transformer', () => ({
-  plainToInstance: jest.fn((_cls, obj) => obj),
-}));
-jest.mock('class-validator', () => ({
-  validate: jest.fn(() => Promise.resolve([])), // Simula siempre validación exitosa en este contexto
-}));
-
-// AWS SDK DynamoDB DocumentClient
-const mockPutCommand = jest.fn();
-const mockSend = jest.fn();
-
-jest.mock('@aws-sdk/lib-dynamodb', () => ({
-  DynamoDBDocumentClient: {
-    from: jest.fn(() => ({
-      send: mockSend,
-    })),
-  },
-  PutCommand: jest.fn((params) => {
-    mockPutCommand(params);
-    return params;
-  }),
-}));
-
+const { handler } = require('./dist/handler');
 const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-describe('Lambda Handler: Adhesión de Empresa (JS Puro)', () => {
+// --- Mocks de Módulos ---
+// Importante: Para los módulos que necesitan ser rastreados (como uuid y los de AWS SDK),
+// definimos los mocks *dentro* de las fábricas de jest.mock.
+
+jest.mock('uuid', () => {
+  // Creamos el mock de v4 aquí mismo.
+  const mockV4 = jest.fn(() => 'mocked-uuid-123');
+  return {
+    v4: mockV4,
+    __esModule: true,
+    _mockV4: mockV4, 
+  };
+});
+
+jest.mock('class-transformer', () => {
+  const actualClassTransformer = jest.requireActual('class-transformer');
+  const mockPlainToInstance = jest.fn((cls, plainObject) => {
+    if (typeof cls === 'function' && plainObject !== null && typeof plainObject === 'object') {
+      const instance = new cls();
+      Object.assign(instance, plainObject);
+      return instance;
+    }
+    return plainObject;
+  });
+  return {
+    ...actualClassTransformer,
+    plainToInstance: mockPlainToInstance,
+    _mockPlainToInstance: mockPlainToInstance, 
+  };
+});
+
+
+// ¡ATENCIÓN! NO mockeamos class-validator, quiero que la implementación real se ejecute.
+
+
+jest.mock('@aws-sdk/lib-dynamodb', () => {
+  const _mockPutCommand = jest.fn();
+  const _mockSend = jest.fn();
+
+  return {
+    DynamoDBDocumentClient: {
+      from: jest.fn(() => ({
+        send: _mockSend, 
+      })),
+    },
+    PutCommand: jest.fn((params) => {
+      _mockPutCommand(params); 
+      return params;
+    }),
+    _mockPutCommand: _mockPutCommand,
+    _mockSend: _mockSend,
+  };
+});
+
+
+describe('Lambda Handler: Adhesión de Empresa (TypeScript compilado)', () => {
+  const { _mockV4 } = require('uuid');
+  const { _mockPlainToInstance } = require('class-transformer');
+  const { _mockPutCommand, _mockSend } = require('@aws-sdk/lib-dynamodb');
+
+
   const mockEvent = (body, method = 'POST') => ({
     httpMethod: method,
     body: JSON.stringify(body),
@@ -41,11 +69,11 @@ describe('Lambda Handler: Adhesión de Empresa (JS Puro)', () => {
   });
 
   beforeEach(() => {
-    require('uuid').v4.mockClear();
-    require('class-transformer').plainToInstance.mockClear();
-    require('class-validator').validate.mockClear().mockResolvedValue([]); // Asegurar que siempre devuelve []
-    mockPutCommand.mockClear();
-    mockSend.mockClear().mockResolvedValue({});
+    // Limpieza de mocks
+    _mockV4.mockClear();
+    _mockPlainToInstance.mockClear();
+    _mockPutCommand.mockClear();
+    _mockSend.mockClear().mockResolvedValue({}); // mockeada la rta de DynamoDB como exitosa
     consoleErrorSpy.mockClear();
 
     const MOCK_DATE = new Date('2025-07-25T10:00:00.000Z');
@@ -57,7 +85,7 @@ describe('Lambda Handler: Adhesión de Empresa (JS Puro)', () => {
     jest.restoreAllMocks();
   });
 
-  // --- Test Case 1: Solicitud de adhesión exitosa ---
+  // Test Case 1: Solicitud de adhesión exitosa
   it('should successfully register a company with valid data and return 201', async () => {
     const requestBody = {
       cuit: '30-12345678-0',
@@ -68,15 +96,14 @@ describe('Lambda Handler: Adhesión de Empresa (JS Puro)', () => {
 
     const response = await handler(event);
 
-    expect(require('class-transformer').plainToInstance).toHaveBeenCalledWith(
+    expect(_mockPlainToInstance).toHaveBeenCalledWith(
       expect.any(Function),
       requestBody
     );
-    expect(require('class-validator').validate).toHaveBeenCalledWith(requestBody); // Called, but returns [] in this setup
 
-    expect(require('uuid').v4).toHaveBeenCalled();
+    expect(_mockV4).toHaveBeenCalled();
 
-    expect(mockPutCommand).toHaveBeenCalledWith({
+    expect(_mockPutCommand).toHaveBeenCalledWith({
       TableName: 'EmpresasTable',
       Item: {
         id: 'mocked-uuid-123',
@@ -86,7 +113,7 @@ describe('Lambda Handler: Adhesión de Empresa (JS Puro)', () => {
         tipo: requestBody.tipo,
       },
     });
-    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(_mockSend).toHaveBeenCalledTimes(1);
 
     expect(response.statusCode).toBe(201);
     const body = JSON.parse(response.body);
@@ -97,9 +124,10 @@ describe('Lambda Handler: Adhesión de Empresa (JS Puro)', () => {
       fechaAdhesion: new Date().toISOString(),
       tipo: requestBody.tipo,
     });
+    expect(response.headers['Content-Type']).toBe('application/json');
   });
 
-  // --- Test Case 2: Método HTTP no permitido ---
+  // Test Case 2: Método HTTP no permitido
   it('should return 405 for non-POST methods', async () => {
     const event = mockEvent({ cuit: 'test' }, 'GET');
 
@@ -107,11 +135,35 @@ describe('Lambda Handler: Adhesión de Empresa (JS Puro)', () => {
 
     expect(response.statusCode).toBe(405);
     expect(JSON.parse(response.body)).toEqual({ message: 'Method Not Allowed' });
-    expect(require('class-validator').validate).not.toHaveBeenCalled();
-    expect(mockSend).not.toHaveBeenCalled();
+    expect(_mockSend).not.toHaveBeenCalled();
   });
 
-  // --- Test Case 3: Request body no es un JSON válido ---
+  // Test Case 3: Errores de validación
+  it('should return 400 for invalid request body (validation errors)', async () => {
+    const invalidRequestBody = {
+      cuit: '',
+      razonSocial: 'Invalid Company',
+      tipo: 'INVALID_TYPE',
+    };
+    const event = mockEvent(invalidRequestBody);
+
+    const response = await handler(event);
+
+    expect(response.statusCode).toBe(400);
+    const body = JSON.parse(response.body);
+    expect(body.error).toBe('Bad Request');
+    expect(body.statusCode).toBe(400);
+    expect(body.message).toEqual(
+      expect.arrayContaining([
+        'El CUIT no puede estar vacío.',
+        'El tipo de empresa no es válido.',
+      ])
+    );
+    expect(_mockSend).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalled();
+  });
+
+  // Test Case 4: Request body no es un JSON válido
   it('should return 500 for invalid JSON in request body', async () => {
     const event = {
       httpMethod: 'POST',
@@ -124,11 +176,11 @@ describe('Lambda Handler: Adhesión de Empresa (JS Puro)', () => {
     expect(response.statusCode).toBe(500);
     expect(JSON.parse(response.body).message).toBe('Internal Server Error');
     expect(JSON.parse(response.body).error).toContain('Unexpected end of JSON input');
-    expect(mockSend).not.toHaveBeenCalled();
+    expect(_mockSend).not.toHaveBeenCalled();
     expect(consoleErrorSpy).toHaveBeenCalled();
   });
 
-  // --- Test Case 4: Error durante la operación de DynamoDB ---
+  // Test Case 5: Error durante la operación de DynamoDB
   it('should return 500 if DynamoDB operation fails', async () => {
     const requestBody = {
       cuit: '30-98765432-1',
@@ -137,14 +189,14 @@ describe('Lambda Handler: Adhesión de Empresa (JS Puro)', () => {
     };
     const event = mockEvent(requestBody);
 
-    mockSend.mockRejectedValueOnce(new Error('DynamoDB connection failed'));
+    _mockSend.mockRejectedValueOnce(new Error('DynamoDB connection failed'));
 
     const response = await handler(event);
 
     expect(response.statusCode).toBe(500);
     expect(JSON.parse(response.body).message).toBe('Internal Server Error');
     expect(JSON.parse(response.body).error).toBe('DynamoDB connection failed');
-    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(_mockSend).toHaveBeenCalledTimes(1);
     expect(consoleErrorSpy).toHaveBeenCalled();
   });
 });

@@ -2,8 +2,9 @@
   "name": "empresa-adhesion-lambda",
   "version": "1.0.0",
   "description": "AWS Lambda function for company adhesion requests.",
-  "main": "index.js",
+  "main": "dist/handler.js",
   "scripts": {
+    "build": "tsc",
     "test": "jest"
   },
   "keywords": [],
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@types/uuid": "^9.0.0",
     "@types/reflect-metadata": "^0.1.0",
-    "jest": "^29.x.x"  
+    "jest": "^29.x.x",
+    "typescript": "^5.x.x"    
   }
 }

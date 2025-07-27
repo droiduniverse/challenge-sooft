@@ -1,0 +1,20 @@
+# Node.js
+node_modules/
+npm-debug.log*
+.npm/
+.eslintcache
+/dist/
+
+
+# Environment variables
+.env
+.env.development
+.env.production
+.env.local
+
+# Test coverage
+/coverage/
+
+# Misc
+*.log
+.DS_Store

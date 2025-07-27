@@ -28,7 +28,14 @@ Inicie la aplicación en modo desarrollo:
 
 `npm run start:dev`
 
-La API estará disponible en `http://localhost:3000.`
+La API estará disponible en `http://localhost:3000`
+
+Acceso a la Documentación de la API:
+
+Una vez que la API esté corriendo, la documentación interactiva (Swagger UI) estará disponible en:
+`http://localhost:3000/api/docs`
+
+Para probar los endpoints protegidos, primero obtenga un token JWT desde el endpoint `/auth/login` (credenciales de prueba: admin/password123 o user/password456) y luego úselo en el botón "Authorize" de Swagger.
 
 
 #### 2. Diseño de AWS Lambda (/lambda-adhesion)
@@ -47,13 +54,11 @@ Esta sección describe el diseño de una AWS Lambda Function para el proceso de 
 
 El código fuente (`index.js`) y el `package.json` se encuentran en este directorio.
 
-**NOTA IMPORTANTE sobre la validación y el entorno de JavaScript:**
+**Nota Importante sobre la Validación y TypeScript**
 
-Este proyecto de Lambda está escrito en **JavaScript puro** para propósitos de demostración teórica. Incluye las librerías `class-validator` y `class-transformer` por su relevancia en proyectos de Node.js modernos.
+Este proyecto de Lambda está escrito en TypeScript para propósitos de demostración teórica. Incluye las librerías `class-validator` y `class-transformer` por su relevancia en proyectos de Node.js modernos.
 
-Sin embargo, para que `class-validator` realice validaciones basadas en **decoradores** (ej. `@IsString()`, `@IsEnum()`), el código fuente **necesita ser TypeScript** y pasar por un proceso de transpilación con `tsc` que inyecte los metadatos de los decoradores (`emitDecoratorMetadata: true`).
-
-Dado que esta es una demostración puramente teórica en JavaScript sin un paso de `tsc` activo, la función `validate()` de `class-validator` **no aplicará automáticamente las reglas de validación definidas por decoradores.** En un escenario de producción puramente JavaScript, se requeriría una validación manual explícita.
+Para que `class-validator` realice validaciones basadas en decoradores (por ejemplo, `@IsString()`, `@IsEnum()`), el código fuente en TypeScript debe pasar por un proceso de transpilación con tsc que inyecte los metadatos de los decoradores `(emitDecoratorMetadata: true)`. **Esta configuración se asume para el funcionamiento correcto de las validaciones con decoradores en un entorno de ejecución de Lambda**.
 
 
 ## Consideraciones generales que tomé para el desarrollo
@@ -69,9 +74,11 @@ Persistencia en Memoria: Para cumplir con los requisitos de no depender de Docke
 
 Inyección de Dependencias por Interfaces (Puertos): La comunicación entre capas se realiza a través de interfaces (ports), no de clases concretas. Esto invierte el control y permite que las implementaciones sean fácilmente intercambiables.
 
-Uso de DTOs (Data Transfer Objects): Se utilizaron DTOs para definir contratos claros en la capa de API, tanto para la entrada de datos (con validaciones usando class-validator) como para la salida, asegurando que no se expongan detalles internos de las entidades del dominio.
+Uso de DTOs (Data Transfer Objects): Se utilizaron DTOs para definir contratos claros en la capa de API, tanto para la entrada de datos (con validaciones usando `class-validator`) como para la salida, asegurando que no se expongan detalles internos de las entidades del dominio.
 
-Supuesto sobre Transferencias: Se asumió la necesidad de añadir un campo fecha a la entidad Transferencia para poder implementar correctamente el requisito de "obtener empresas con transferencias en el último mes".
+Documentación de Endpoints (Swagger): La API está documentada utilizando Swagger (OpenAPI). Esto proporciona una interfaz interactiva (/api/docs) que facilita la exploración de los endpoints, sus parámetros, modelos de datos y respuestas, lo que es útil para pruebas manuales y para el consumo por parte de otros desarrolladores.
+
+Se asumió la necesidad de añadir un campo fecha a la entidad Transferencia para poder implementar correctamente el requisito de "obtener empresas con transferencias en el último mes".
 
 #### Sobre el Diseño AWS Lambda
 
@@ -82,3 +89,6 @@ Base de Datos (Teórica): Se propuso el uso de Amazon DynamoDB, una base de dato
 Integración con API Gateway: Se diseñó la solución para ser expuesta a través de un endpoint en API Gateway. Esto proporciona una fachada segura, escalable y desacoplada para la función Lambda.
 
 Generación de IDs: Se asumió que la Lambda sería responsable de generar el ID único de la nueva empresa, utilizando crypto.randomUUID() para garantizar unicidad sin depender de una secuencia de base de datos.
+
+
+

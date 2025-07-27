@@ -1,12 +1,11 @@
-import { Controller, Get, Post, Body, Inject } from '@nestjs/common';
-// Desde controllers/ a core/ports/in/
+import { Controller, Get, Post, Body, Inject, UseGuards } from '@nestjs/common';
 import { EmpresaServicePort, RegistrarEmpresaCommand } from '../../../core/ports/in/empresa-service.port';
-// Desde controllers/ a core/domain/
 import { Empresa } from '../../../core/domain/empresa.entity';
-// Desde controllers/ a dtos/
 import { CreateEmpresaDto } from '../dtos/create-empresa.dto';
-// Desde controllers/ a core/services/
 import { EMPRESA_SERVICE_PORT } from '../../../core/services/empresa.service';
+import { JwtAuthGuard } from '../../../auth/jwt-auth.guard'; 
+import { ApiBearerAuth } from '@nestjs/swagger'; 
+
 
 @Controller('empresas')
 export class EmpresaController {
@@ -15,15 +14,24 @@ export class EmpresaController {
     private readonly empresaService: EmpresaServicePort,
   ) {}
 
+  @UseGuards(JwtAuthGuard) 
+  @ApiBearerAuth() 
+
   @Get('transferencias-ultimo-mes')
   async getEmpresasConTransferenciasUltimoMes(): Promise<Empresa[]> {
     return this.empresaService.getEmpresasConTransferenciasUltimoMes();
   }
 
+  @UseGuards(JwtAuthGuard) 
+  @ApiBearerAuth() 
+  
   @Get('adheridas-ultimo-mes')
   async getEmpresasAdheridasUltimoMes(): Promise<Empresa[]> {
     return this.empresaService.getEmpresasAdheridasUltimoMes();
   }
+
+  @UseGuards(JwtAuthGuard) 
+  @ApiBearerAuth() 
 
   @Post('adhesion')
   async registrarAdhesion(@Body() createEmpresaDto: CreateEmpresaDto): Promise<Empresa> {

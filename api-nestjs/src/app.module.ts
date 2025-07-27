@@ -15,9 +15,10 @@ import {
 import { InMemoryEmpresaRepository } from './infrastructure/persistence/in-memory/in-memory-empresa.repository';
 // Desde src/ a infrastructure/persistence/in-memory/
 import { InMemoryTransferenciaRepository } from './infrastructure/persistence/in-memory/in-memory-transferencia.repository';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
-  imports: [],
+  imports: [AuthModule],
   controllers: [EmpresaController],
   providers: [
     {
